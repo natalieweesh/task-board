@@ -27,6 +27,7 @@ services:
       - "${PORT}:${PORT}"
     volumes:
       - ./server/src:/app/src
+      - ./server/prisma:/app/prisma
     depends_on:
       db:
         condition: service_healthy
