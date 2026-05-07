@@ -17,6 +17,7 @@ export default function Board() {
   const [description, setDescription] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
 
   useEffect(() => {
     apiFetch('/tasks')
@@ -84,36 +85,63 @@ export default function Board() {
     }
   }
 
+  function closeForm() {
+    setFormOpen(false);
+    setTitle('');
+    setDescription('');
+    setError(null);
+  }
+
   return (
     <div>
-      <form
-        onSubmit={handleCreate}
-        className="mb-6 flex flex-col gap-2 max-w-md bg-white p-4 rounded border border-gray-200"
-      >
-        <input
-          type="text"
-          placeholder="task title"
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          disabled={loading}
-          className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <textarea
-          placeholder="description (optional)"
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          disabled={loading}
-          rows={2}
-          className="px-3 py-2 border border-gray-300 rounded font-sans resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <button
-          type="submit"
-          disabled={loading || !title.trim()}
-          className="self-start px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+      {formOpen ? (
+        <form
+          onSubmit={handleCreate}
+          className="mb-6 flex flex-col gap-2 max-w-md bg-white p-4 rounded border border-gray-200"
         >
-          {loading ? '...' : 'Add task'}
+          <input
+            type="text"
+            placeholder="task title"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            disabled={loading}
+            autoFocus
+            className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <textarea
+            placeholder="description (optional)"
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            disabled={loading}
+            rows={2}
+            className="px-3 py-2 border border-gray-300 rounded font-sans resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={loading || !title.trim()}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? '...' : 'Add task'}
+            </button>
+            <button
+              type="button"
+              onClick={closeForm}
+              disabled={loading}
+              className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-100"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <button
+          onClick={() => setFormOpen(true)}
+          className="mb-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          + Add task
         </button>
-      </form>
+      )}
 
       {error && <p className="text-red-600 mb-4 text-sm">{error}</p>}
 

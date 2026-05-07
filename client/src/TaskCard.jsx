@@ -1,12 +1,19 @@
 import { useState } from 'react';
 import { apiFetch } from './api.js';
+import Dropdown from './Dropdown.jsx';
 
 const STATUSES = ['TODO', 'IN_PROGRESS', 'DONE'];
+const STATUS_LABELS = {
+  TODO: 'TO DO',
+  IN_PROGRESS: 'IN PROGRESS',
+  DONE: 'DONE',
+};
 
 export default function TaskCard({ task, onChange, onDelete }) {
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [error, setError] = useState(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   function startEdit(field, currentValue) {
     setEditingField(field);
@@ -50,18 +57,29 @@ export default function TaskCard({ task, onChange, onDelete }) {
     }
   }
 
-  async function handleDelete() {
-    if (!window.confirm('Delete this task?')) return;
+  async function confirmDelete() {
     try {
       await apiFetch(`/tasks/${task.id}`, { method: 'DELETE' });
       onDelete(task.id);
     } catch (err) {
       setError(err.message);
+      setConfirmingDelete(false);
     }
   }
 
   return (
-    <div className="bg-white rounded shadow-sm border border-gray-200 p-3">
+    <div className="relative bg-white rounded shadow-sm border border-gray-200 p-3">
+      {!editingField && (
+        <button
+          onClick={() => setConfirmingDelete(true)}
+          className="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-red-600 hover:bg-red-50 text-lg leading-none cursor-pointer"
+          title="Delete task"
+          aria-label="Delete task"
+        >
+          ×
+        </button>
+      )}
+
       {editingField === 'title' ? (
         <EditField
           value={editValue}
@@ -72,7 +90,7 @@ export default function TaskCard({ task, onChange, onDelete }) {
         />
       ) : (
         <div
-          className="font-medium cursor-pointer hover:bg-gray-50 -mx-1 px-1 rounded"
+          className="font-medium cursor-pointer hover:bg-gray-50 -mx-1 px-1 mr-5 rounded break-all"
           onClick={() => startEdit('title', task.title)}
           title="Click to edit"
         >
@@ -92,7 +110,7 @@ export default function TaskCard({ task, onChange, onDelete }) {
         </div>
       ) : task.description ? (
         <div
-          className="text-sm text-gray-600 mt-1 cursor-pointer hover:bg-gray-50 -mx-1 px-1 rounded whitespace-pre-wrap"
+          className="text-sm text-gray-600 mt-1 cursor-pointer hover:bg-gray-50 -mx-1 px-1 rounded whitespace-pre-wrap break-all"
           onClick={() => startEdit('description', task.description)}
           title="Click to edit"
         >
@@ -108,27 +126,36 @@ export default function TaskCard({ task, onChange, onDelete }) {
       )}
 
       <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
-        <span>{task.createdBy.username}</span>
-        <div className="flex items-center gap-2">
-          <select
-            value={task.status}
-            onChange={e => changeStatus(e.target.value)}
-            className="text-xs border border-gray-300 rounded px-1 py-0.5 bg-white"
-          >
-            {STATUSES.map(s => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-          <button
-            onClick={handleDelete}
-            className="text-red-600 hover:underline"
-          >
-            Delete
-          </button>
-        </div>
+        <span className="break-all">{task.createdBy.username}</span>
+        <Dropdown
+          value={task.status}
+          onChange={changeStatus}
+          options={STATUSES}
+          labels={STATUS_LABELS}
+        />
       </div>
 
       {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+
+      {confirmingDelete && (
+        <div className="absolute inset-0 bg-gray-200/95 rounded flex flex-col items-center justify-center gap-2 p-3">
+          <p className="text-sm font-medium text-gray-800">Delete this task?</p>
+          <div className="flex gap-2">
+            <button
+              onClick={confirmDelete}
+              className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 cursor-pointer"
+            >
+              Delete
+            </button>
+            <button
+              onClick={() => setConfirmingDelete(false)}
+              className="px-3 py-1 text-sm border border-gray-400 rounded bg-white hover:bg-gray-100 cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -170,13 +197,13 @@ function EditField({ value, onChange, onSave, onCancel, multiline }) {
       <div className="flex gap-1">
         <button
           onClick={onSave}
-          className="px-2 py-0.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+          className="px-2 py-0.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 cursor-pointer"
         >
           Save
         </button>
         <button
           onClick={onCancel}
-          className="px-2 py-0.5 text-xs border border-gray-300 rounded hover:bg-gray-100"
+          className="px-2 py-0.5 text-xs border border-gray-300 rounded hover:bg-gray-100 cursor-pointer"
         >
           Cancel
         </button>
