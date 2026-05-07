@@ -27,6 +27,16 @@ export default function Board() {
     }
   }
 
+  async function handleDelete(id) {
+    if (!window.confirm('Delete this task?')) return;
+    try {
+      await apiFetch(`/tasks/${id}`, { method: 'DELETE' });
+      setTasks(prev => prev.filter(t => t.id !== id));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   function startEdit(taskId, field, currentValue) {
     setEditing({ taskId, field, value: currentValue ?? '' });
   }
@@ -135,7 +145,14 @@ export default function Board() {
                 <option value="IN_PROGRESS">IN_PROGRESS</option>
                 <option value="DONE">DONE</option>
               </select>{' '}
-              <span style={{ color: '#666' }}>— {task.createdBy.username}</span>
+              <span style={{ color: '#666' }}>— {task.createdBy.username}</span>{' '}
+              <button
+                onClick={() => handleDelete(task.id)}
+                style={{ marginLeft: '0.5rem', color: 'crimson', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.875rem' }}
+                title="Delete task"
+              >
+                Delete
+              </button>
               {descEditing ? (
                 <div style={{ marginTop: '0.25rem' }}>
                   <EditField

@@ -34,6 +34,18 @@ router.post('/', async (req, res) => {
   res.status(201).json(task);
 });
 
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.task.delete({ where: { id } });
+    res.status(204).end();
+  } catch (err) {
+    // P2025: Prisma's "record not found" — thrown by update/delete when the where clause matches no rows
+    if (err.code === 'P2025') return res.status(404).json({ error: 'not found' });
+    throw err;
+  }
+});
+
 router.patch('/:id', async (req, res) => {
   const { id } = req.params;
   const { title, description, status } = req.body ?? {};
