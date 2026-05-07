@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from './api.js';
 import { socket } from './socket.js';
 import TaskCard from './TaskCard.jsx';
@@ -18,6 +18,32 @@ export default function Board() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+  const [flashingIds, setFlashingIds] = useState(() => new Set());
+  // Tracks task ids WE just mutated (PATCH) so the resulting socket 'task:updated' echo
+  // doesn't trigger the flash animation for us. Cleared after a short TTL.
+  const localMutationsRef = useRef(new Set());
+
+  function trackLocalMutation(taskId) {
+    localMutationsRef.current.add(taskId);
+    setTimeout(() => {
+      localMutationsRef.current.delete(taskId);
+    }, 1500);
+  }
+
+  function flashTask(id) {
+    setFlashingIds(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    setTimeout(() => {
+      setFlashingIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }, 1200);
+  }
 
   useEffect(() => {
     apiFetch('/tasks')
@@ -35,6 +61,9 @@ export default function Board() {
     };
     const onUpdated = task => {
       setTasks(prev => prev.map(t => (t.id === task.id ? task : t)));
+      if (!localMutationsRef.current.has(task.id)) {
+        flashTask(task.id);
+      }
     };
     const onDeleted = ({ id }) => {
       setTasks(prev => prev.filter(t => t.id !== id));
@@ -120,7 +149,7 @@ export default function Board() {
             <button
               type="submit"
               disabled={loading || !title.trim()}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {loading ? '...' : 'Add task'}
             </button>
@@ -128,7 +157,7 @@ export default function Board() {
               type="button"
               onClick={closeForm}
               disabled={loading}
-              className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-100"
+              className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-100 cursor-pointer"
             >
               Cancel
             </button>
@@ -137,7 +166,7 @@ export default function Board() {
       ) : (
         <button
           onClick={() => setFormOpen(true)}
-          className="mb-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          className="mb-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 cursor-pointer"
         >
           + Add task
         </button>
@@ -164,6 +193,8 @@ export default function Board() {
                     task={task}
                     onChange={handleTaskChange}
                     onDelete={handleTaskDelete}
+                    onMutate={trackLocalMutation}
+                    flashing={flashingIds.has(task.id)}
                   />
                 ))}
               </div>

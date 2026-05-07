@@ -24,7 +24,7 @@ export default function App() {
             Signed in as <strong>{session.user.username}</strong>
             <button
               onClick={handleLogout}
-              className="ml-3 px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100"
+              className="ml-3 px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100 cursor-pointer"
             >
               Sign out
             </button>

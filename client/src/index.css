@@ -1,1 +1,15 @@
 @import "tailwindcss";
+
+@keyframes flash {
+  0% {
+    background-color: oklch(96.2% 0.044 156.743);
+  }
+  100% {
+    background-color: #ffffff;
+  }
+}
+
+.animate-flash {
+  animation: flash 1.2s ease-in-out;
+}
+

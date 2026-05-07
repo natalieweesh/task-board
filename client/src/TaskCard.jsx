@@ -9,7 +9,7 @@ const STATUS_LABELS = {
   DONE: 'DONE',
 };
 
-export default function TaskCard({ task, onChange, onDelete }) {
+export default function TaskCard({ task, onChange, onDelete, onMutate, flashing }) {
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [error, setError] = useState(null);
@@ -33,6 +33,7 @@ export default function TaskCard({ task, onChange, onDelete }) {
       return;
     }
     try {
+      onMutate?.(task.id);
       const updated = await apiFetch(`/tasks/${task.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ [editingField]: trimmed }),
@@ -47,6 +48,7 @@ export default function TaskCard({ task, onChange, onDelete }) {
 
   async function changeStatus(status) {
     try {
+      onMutate?.(task.id);
       const updated = await apiFetch(`/tasks/${task.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ status }),
@@ -68,7 +70,7 @@ export default function TaskCard({ task, onChange, onDelete }) {
   }
 
   return (
-    <div className="relative bg-white rounded shadow-sm border border-gray-200 p-3">
+    <div className={`relative bg-white rounded shadow-sm border border-gray-200 p-3 ${flashing ? 'animate-flash' : ''}`}>
       {!editingField && (
         <button
           onClick={() => setConfirmingDelete(true)}
@@ -89,13 +91,14 @@ export default function TaskCard({ task, onChange, onDelete }) {
           multiline={false}
         />
       ) : (
-        <div
-          className="font-medium cursor-pointer hover:bg-gray-50 -mx-1 px-1 mr-5 rounded break-all"
+        <button
+          type="button"
+          className="block text-left font-medium cursor-pointer hover:bg-gray-50 -mx-1 px-1 mr-5 rounded break-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           onClick={() => startEdit('title', task.title)}
           title="Click to edit"
         >
           {task.title}
-        </div>
+        </button>
       )}
 
       {editingField === 'description' ? (
@@ -109,20 +112,22 @@ export default function TaskCard({ task, onChange, onDelete }) {
           />
         </div>
       ) : task.description ? (
-        <div
-          className="text-sm text-gray-600 mt-1 cursor-pointer hover:bg-gray-50 -mx-1 px-1 rounded whitespace-pre-wrap break-all"
+        <button
+          type="button"
+          className="block text-left text-sm text-gray-600 mt-1 cursor-pointer hover:bg-gray-50 -mx-1 px-1 rounded whitespace-pre-wrap break-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           onClick={() => startEdit('description', task.description)}
           title="Click to edit"
         >
           {task.description}
-        </div>
+        </button>
       ) : (
-        <div
-          className="text-xs text-gray-400 italic mt-1 cursor-pointer hover:text-gray-600"
+        <button
+          type="button"
+          className="text-xs text-gray-400 italic mt-1 cursor-pointer hover:text-gray-600 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           onClick={() => startEdit('description', '')}
         >
-          + add description
-        </div>
+          + Add description
+        </button>
       )}
 
       <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
@@ -137,25 +142,28 @@ export default function TaskCard({ task, onChange, onDelete }) {
 
       {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
 
-      {confirmingDelete && (
-        <div className="absolute inset-0 bg-gray-200/95 rounded flex flex-col items-center justify-center gap-2 p-3">
-          <p className="text-sm font-medium text-gray-800">Delete this task?</p>
-          <div className="flex gap-2">
-            <button
-              onClick={confirmDelete}
-              className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 cursor-pointer"
-            >
-              Delete
-            </button>
-            <button
-              onClick={() => setConfirmingDelete(false)}
-              className="px-3 py-1 text-sm border border-gray-400 rounded bg-white hover:bg-gray-100 cursor-pointer"
-            >
-              Cancel
-            </button>
-          </div>
+      <div
+        aria-hidden={!confirmingDelete}
+        className={`absolute inset-0 bg-gray-200/95 rounded flex flex-col items-center justify-center gap-2 p-3 transition-opacity duration-150 ${
+          confirmingDelete ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <p className="text-sm font-medium text-gray-800">Delete this task?</p>
+        <div className="flex gap-2">
+          <button
+            onClick={confirmDelete}
+            className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 cursor-pointer"
+          >
+            Delete
+          </button>
+          <button
+            onClick={() => setConfirmingDelete(false)}
+            className="px-3 py-1 text-sm border border-gray-400 rounded bg-white hover:bg-gray-100 cursor-pointer"
+          >
+            Cancel
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
