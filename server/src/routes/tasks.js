@@ -14,13 +14,14 @@ router.get('/', async (req, res) => {
   res.json(tasks);
 });
 
+const VALID_STATUSES = ['TODO', 'IN_PROGRESS', 'DONE'];
+
 router.post('/', async (req, res) => {
   const { title, description, status } = req.body ?? {};
   if (typeof title !== 'string' || !title.trim()) {
     return res.status(400).json({ error: 'title required' });
   }
-  const validStatuses = ['TODO', 'IN_PROGRESS', 'DONE'];
-  const taskStatus = validStatuses.includes(status) ? status : 'TODO';
+  const taskStatus = VALID_STATUSES.includes(status) ? status : 'TODO';
   const task = await prisma.task.create({
     data: {
       title: title.trim(),
@@ -31,6 +32,35 @@ router.post('/', async (req, res) => {
     include: { createdBy: true },
   });
   res.status(201).json(task);
+});
+
+router.patch('/:id', async (req, res) => {
+  const { id } = req.params;
+  const { title, description, status } = req.body ?? {};
+  const data = {};
+  if (typeof title === 'string' && title.trim()) data.title = title.trim();
+  if (description !== undefined) data.description = description?.trim() || null;
+  if (status !== undefined) {
+    if (!VALID_STATUSES.includes(status)) {
+      return res.status(400).json({ error: 'invalid status' });
+    }
+    data.status = status;
+  }
+  if (Object.keys(data).length === 0) {
+    return res.status(400).json({ error: 'no valid fields to update' });
+  }
+  try {
+    const task = await prisma.task.update({
+      where: { id },
+      data,
+      include: { createdBy: true },
+    });
+    res.json(task);
+  } catch (err) {
+    // P2025: Prisma's "record not found" — thrown by update/delete when the where clause matches no rows
+    if (err.code === 'P2025') return res.status(404).json({ error: 'not found' });
+    throw err;
+  }
 });
 
 export default router;

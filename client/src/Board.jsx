@@ -14,6 +14,18 @@ export default function Board() {
       .catch(err => setError(err.message));
   }, []);
 
+  async function handleStatusChange(id, status) {
+    try {
+      const updated = await apiFetch(`/tasks/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+      setTasks(prev => prev.map(t => (t.id === id ? updated : t)));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   async function handleCreate(e) {
     e.preventDefault();
     if (!title.trim()) return;
@@ -65,9 +77,16 @@ export default function Board() {
         {tasks.map(task => (
           <li key={task.id} style={{ marginBottom: '0.5rem' }}>
             <strong>{task.title}</strong>{' '}
-            <span style={{ color: '#666' }}>
-              ({task.status}) — {task.createdBy.username}
-            </span>
+            <select
+              value={task.status}
+              onChange={e => handleStatusChange(task.id, e.target.value)}
+              style={{ marginLeft: '0.25rem' }}
+            >
+              <option value="TODO">TODO</option>
+              <option value="IN_PROGRESS">IN_PROGRESS</option>
+              <option value="DONE">DONE</option>
+            </select>{' '}
+            <span style={{ color: '#666' }}>— {task.createdBy.username}</span>
             {task.description && (
               <div style={{ color: '#444', marginTop: '0.25rem' }}>{task.description}</div>
             )}
