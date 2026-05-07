@@ -6,4 +6,4 @@ COPY prisma ./prisma
 RUN npm install
 COPY . .
 EXPOSE 5000
-CMD ["node", "--watch", "src/index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node --watch src/index.js"]
