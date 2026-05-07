@@ -16,15 +16,22 @@ export default function App() {
   }
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>Task Board</h1>
-        <div>
-          Signed in as <strong>{session.user.username}</strong>{' '}
-          <button onClick={handleLogout}>Sign out</button>
+    <div className="min-h-screen bg-gray-50 font-sans">
+      <div className="max-w-7xl mx-auto px-8 py-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Task Board</h1>
+          <div className="text-sm text-gray-700">
+            Signed in as <strong>{session.user.username}</strong>
+            <button
+              onClick={handleLogout}
+              className="ml-3 px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
+        <Board />
       </div>
-      <Board />
     </div>
   );
 }

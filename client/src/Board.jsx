@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from './api.js';
 import { socket } from './socket.js';
+import TaskCard from './TaskCard.jsx';
+
+const STATUSES = ['TODO', 'IN_PROGRESS', 'DONE'];
+
+const STATUS_LABELS = {
+  TODO: 'To do',
+  IN_PROGRESS: 'In progress',
+  DONE: 'Done',
+};
 
 export default function Board() {
   const [tasks, setTasks] = useState([]);
@@ -8,7 +17,6 @@ export default function Board() {
   const [description, setDescription] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [editing, setEditing] = useState(null);
 
   useEffect(() => {
     apiFetch('/tasks')
@@ -43,55 +51,12 @@ export default function Board() {
     };
   }, []);
 
-  async function handleStatusChange(id, status) {
-    try {
-      const updated = await apiFetch(`/tasks/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      });
-      setTasks(prev => prev.map(t => (t.id === id ? updated : t)));
-    } catch (err) {
-      setError(err.message);
-    }
+  function handleTaskChange(updated) {
+    setTasks(prev => prev.map(t => (t.id === updated.id ? updated : t)));
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm('Delete this task?')) return;
-    try {
-      await apiFetch(`/tasks/${id}`, { method: 'DELETE' });
-      setTasks(prev => prev.filter(t => t.id !== id));
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
-  function startEdit(taskId, field, currentValue) {
-    setEditing({ taskId, field, value: currentValue ?? '' });
-  }
-
-  function cancelEdit() {
-    setEditing(null);
-  }
-
-  async function saveEdit() {
-    if (!editing) return;
-    const { taskId, field, value } = editing;
-    const trimmed = value.trim();
-    if (field === 'title' && !trimmed) {
-      setError('title cannot be empty');
-      return;
-    }
-    try {
-      const updated = await apiFetch(`/tasks/${taskId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ [field]: trimmed }),
-      });
-      setTasks(prev => prev.map(t => (t.id === taskId ? updated : t)));
-      setEditing(null);
-      setError(null);
-    } catch (err) {
-      setError(err.message);
-    }
+  function handleTaskDelete(id) {
+    setTasks(prev => prev.filter(t => t.id !== id));
   }
 
   async function handleCreate(e) {
@@ -120,129 +85,64 @@ export default function Board() {
   }
 
   return (
-    <div style={{ marginTop: '1.5rem' }}>
-      <form onSubmit={handleCreate} style={{ marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', maxWidth: 400 }}>
+    <div>
+      <form
+        onSubmit={handleCreate}
+        className="mb-6 flex flex-col gap-2 max-w-md bg-white p-4 rounded border border-gray-200"
+      >
         <input
           type="text"
           placeholder="task title"
           value={title}
           onChange={e => setTitle(e.target.value)}
           disabled={loading}
-          style={{ padding: '0.5rem' }}
+          className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <textarea
           placeholder="description (optional)"
           value={description}
           onChange={e => setDescription(e.target.value)}
           disabled={loading}
-          rows={3}
-          style={{ padding: '0.5rem', fontFamily: 'inherit', resize: 'vertical' }}
+          rows={2}
+          className="px-3 py-2 border border-gray-300 rounded font-sans resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <button type="submit" disabled={loading || !title.trim()} style={{ alignSelf: 'flex-start' }}>
+        <button
+          type="submit"
+          disabled={loading || !title.trim()}
+          className="self-start px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           {loading ? '...' : 'Add task'}
         </button>
       </form>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      <ul style={{ paddingLeft: '1.25rem' }}>
-        {tasks.map(task => {
-          const titleEditing = editing?.taskId === task.id && editing.field === 'title';
-          const descEditing = editing?.taskId === task.id && editing.field === 'description';
+
+      {error && <p className="text-red-600 mb-4 text-sm">{error}</p>}
+
+      <div className="flex flex-col md:flex-row gap-4">
+        {STATUSES.map(status => {
+          const columnTasks = tasks.filter(t => t.status === status);
           return (
-            <li key={task.id} style={{ marginBottom: '0.75rem' }}>
-              {titleEditing ? (
-                <EditField
-                  value={editing.value}
-                  onChange={v => setEditing({ ...editing, value: v })}
-                  onSave={saveEdit}
-                  onCancel={cancelEdit}
-                  multiline={false}
-                />
-              ) : (
-                <strong
-                  onClick={() => startEdit(task.id, 'title', task.title)}
-                  style={{ cursor: 'pointer' }}
-                  title="Click to edit"
-                >
-                  {task.title}
-                </strong>
-              )}{' '}
-              <select
-                value={task.status}
-                onChange={e => handleStatusChange(task.id, e.target.value)}
-                style={{ marginLeft: '0.25rem' }}
-              >
-                <option value="TODO">TODO</option>
-                <option value="IN_PROGRESS">IN_PROGRESS</option>
-                <option value="DONE">DONE</option>
-              </select>{' '}
-              <span style={{ color: '#666' }}>— {task.createdBy.username}</span>{' '}
-              <button
-                onClick={() => handleDelete(task.id)}
-                style={{ marginLeft: '0.5rem', color: 'crimson', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.875rem' }}
-                title="Delete task"
-              >
-                Delete
-              </button>
-              {descEditing ? (
-                <div style={{ marginTop: '0.25rem' }}>
-                  <EditField
-                    value={editing.value}
-                    onChange={v => setEditing({ ...editing, value: v })}
-                    onSave={saveEdit}
-                    onCancel={cancelEdit}
-                    multiline={true}
+            <div
+              key={status}
+              className="flex-1 bg-gray-100 rounded-lg p-3 min-h-[200px]"
+            >
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-600 mb-3 px-1">
+                {STATUS_LABELS[status]}{' '}
+                <span className="text-gray-400 font-normal">({columnTasks.length})</span>
+              </h2>
+              <div className="flex flex-col gap-2">
+                {columnTasks.map(task => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    onChange={handleTaskChange}
+                    onDelete={handleTaskDelete}
                   />
-                </div>
-              ) : task.description ? (
-                <div
-                  onClick={() => startEdit(task.id, 'description', task.description)}
-                  style={{ color: '#444', marginTop: '0.25rem', cursor: 'pointer' }}
-                  title="Click to edit"
-                >
-                  {task.description}
-                </div>
-              ) : (
-                <div
-                  onClick={() => startEdit(task.id, 'description', '')}
-                  style={{ color: '#999', fontStyle: 'italic', marginTop: '0.25rem', cursor: 'pointer', fontSize: '0.875rem' }}
-                >
-                  + add description
-                </div>
-              )}
-            </li>
+                ))}
+              </div>
+            </div>
           );
         })}
-      </ul>
+      </div>
     </div>
-  );
-}
-
-function EditField({ value, onChange, onSave, onCancel, multiline }) {
-  function handleKeyDown(e) {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      onCancel();
-    } else if (e.key === 'Enter' && !multiline) {
-      e.preventDefault();
-      onSave();
-    }
-  }
-
-  const Input = multiline ? 'textarea' : 'input';
-  return (
-    <span style={{ display: 'inline-flex', flexDirection: multiline ? 'column' : 'row', gap: '0.25rem', alignItems: multiline ? 'stretch' : 'center', maxWidth: 400 }}>
-      <Input
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        onKeyDown={handleKeyDown}
-        autoFocus
-        rows={multiline ? 3 : undefined}
-        style={{ padding: '0.25rem 0.5rem', fontFamily: 'inherit', minWidth: multiline ? 320 : 200 }}
-      />
-      <span style={{ display: 'flex', gap: '0.25rem' }}>
-        <button onClick={onSave}>Save</button>
-        <button onClick={onCancel}>Cancel</button>
-      </span>
-    </span>
   );
 }
