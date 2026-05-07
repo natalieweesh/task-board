@@ -9,6 +9,10 @@ export default defineConfig({
     proxy: {
       '/tasks': 'http://server:5000',
       '/auth': 'http://server:5000',
+      '/socket.io': {
+        target: 'http://server:5000',
+        ws: true,
+      },
     },
   },
 });

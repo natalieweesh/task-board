@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from './api.js';
+import { socket } from './socket.js';
 
 export default function Board() {
   const [tasks, setTasks] = useState([]);
@@ -13,6 +14,33 @@ export default function Board() {
     apiFetch('/tasks')
       .then(setTasks)
       .catch(err => setError(err.message));
+  }, []);
+
+  useEffect(() => {
+    socket.connect();
+
+    const onCreated = task => {
+      // Dedupe by id: this event also fires for tasks WE just created, which the POST handler
+      // already added locally. Whichever (socket vs. HTTP response) arrives second is a no-op.
+      setTasks(prev => (prev.some(t => t.id === task.id) ? prev : [...prev, task]));
+    };
+    const onUpdated = task => {
+      setTasks(prev => prev.map(t => (t.id === task.id ? task : t)));
+    };
+    const onDeleted = ({ id }) => {
+      setTasks(prev => prev.filter(t => t.id !== id));
+    };
+
+    socket.on('task:created', onCreated);
+    socket.on('task:updated', onUpdated);
+    socket.on('task:deleted', onDeleted);
+
+    return () => {
+      socket.off('task:created', onCreated);
+      socket.off('task:updated', onUpdated);
+      socket.off('task:deleted', onDeleted);
+      socket.disconnect();
+    };
   }, []);
 
   async function handleStatusChange(id, status) {
@@ -79,7 +107,9 @@ export default function Board() {
           description: description.trim() || undefined,
         }),
       });
-      setTasks(prev => [...prev, task]);
+      // Dedupe: the socket 'task:created' event may have already added this task before the
+      // HTTP response resolved. See onCreated handler in the socket effect.
+      setTasks(prev => (prev.some(t => t.id === task.id) ? prev : [...prev, task]));
       setTitle('');
       setDescription('');
     } catch (err) {
