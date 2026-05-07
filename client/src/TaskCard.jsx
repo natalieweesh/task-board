@@ -1,13 +1,7 @@
 import { useState } from 'react';
 import { apiFetch } from './api.js';
 import Dropdown from './Dropdown.jsx';
-
-const STATUSES = ['TODO', 'IN_PROGRESS', 'DONE'];
-const STATUS_LABELS = {
-  TODO: 'TO DO',
-  IN_PROGRESS: 'IN PROGRESS',
-  DONE: 'DONE',
-};
+import { STATUSES, STATUS_LABELS } from './statuses.js';
 
 export default function TaskCard({ task, onChange, onDelete, onMutate, flashing }) {
   const [editingField, setEditingField] = useState(null);
@@ -26,37 +20,36 @@ export default function TaskCard({ task, onChange, onDelete, onMutate, flashing 
     setError(null);
   }
 
+  async function patchTask(patch) {
+    onMutate?.(task.id);
+    try {
+      const updated = await apiFetch(`/tasks/${task.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      });
+      onChange(updated);
+      return updated;
+    } catch (err) {
+      setError(err.message);
+      return null;
+    }
+  }
+
   async function saveEdit() {
     const trimmed = editValue.trim();
     if (editingField === 'title' && !trimmed) {
       setError('title cannot be empty');
       return;
     }
-    try {
-      onMutate?.(task.id);
-      const updated = await apiFetch(`/tasks/${task.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ [editingField]: trimmed }),
-      });
-      onChange(updated);
+    const updated = await patchTask({ [editingField]: trimmed });
+    if (updated) {
       setEditingField(null);
       setError(null);
-    } catch (err) {
-      setError(err.message);
     }
   }
 
-  async function changeStatus(status) {
-    try {
-      onMutate?.(task.id);
-      const updated = await apiFetch(`/tasks/${task.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      });
-      onChange(updated);
-    } catch (err) {
-      setError(err.message);
-    }
+  function changeStatus(status) {
+    patchTask({ status });
   }
 
   async function confirmDelete() {
@@ -67,6 +60,67 @@ export default function TaskCard({ task, onChange, onDelete, onMutate, flashing 
       setError(err.message);
       setConfirmingDelete(false);
     }
+  }
+
+  function renderTitle() {
+    if (editingField === 'title') {
+      return (
+        <EditField
+          value={editValue}
+          onChange={setEditValue}
+          onSave={saveEdit}
+          onCancel={cancelEdit}
+          multiline={false}
+        />
+      );
+    }
+    return (
+      <button
+        type="button"
+        className="block text-left font-medium cursor-pointer hover:bg-gray-50 -mx-1 px-1 mr-5 rounded break-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        onClick={() => startEdit('title', task.title)}
+        title="Click to edit"
+      >
+        {task.title}
+      </button>
+    );
+  }
+
+  function renderDescription() {
+    if (editingField === 'description') {
+      return (
+        <div className="mt-2">
+          <EditField
+            value={editValue}
+            onChange={setEditValue}
+            onSave={saveEdit}
+            onCancel={cancelEdit}
+            multiline={true}
+          />
+        </div>
+      );
+    }
+    if (task.description) {
+      return (
+        <button
+          type="button"
+          className="block text-left text-sm text-gray-600 mt-1 cursor-pointer hover:bg-gray-50 -mx-1 px-1 rounded whitespace-pre-wrap break-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          onClick={() => startEdit('description', task.description)}
+          title="Click to edit"
+        >
+          {task.description}
+        </button>
+      );
+    }
+    return (
+      <button
+        type="button"
+        className="text-xs text-gray-400 italic mt-1 cursor-pointer hover:text-gray-600 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        onClick={() => startEdit('description', '')}
+      >
+        + Add description
+      </button>
+    );
   }
 
   return (
@@ -82,53 +136,8 @@ export default function TaskCard({ task, onChange, onDelete, onMutate, flashing 
         </button>
       )}
 
-      {editingField === 'title' ? (
-        <EditField
-          value={editValue}
-          onChange={setEditValue}
-          onSave={saveEdit}
-          onCancel={cancelEdit}
-          multiline={false}
-        />
-      ) : (
-        <button
-          type="button"
-          className="block text-left font-medium cursor-pointer hover:bg-gray-50 -mx-1 px-1 mr-5 rounded break-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-          onClick={() => startEdit('title', task.title)}
-          title="Click to edit"
-        >
-          {task.title}
-        </button>
-      )}
-
-      {editingField === 'description' ? (
-        <div className="mt-2">
-          <EditField
-            value={editValue}
-            onChange={setEditValue}
-            onSave={saveEdit}
-            onCancel={cancelEdit}
-            multiline={true}
-          />
-        </div>
-      ) : task.description ? (
-        <button
-          type="button"
-          className="block text-left text-sm text-gray-600 mt-1 cursor-pointer hover:bg-gray-50 -mx-1 px-1 rounded whitespace-pre-wrap break-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-          onClick={() => startEdit('description', task.description)}
-          title="Click to edit"
-        >
-          {task.description}
-        </button>
-      ) : (
-        <button
-          type="button"
-          className="text-xs text-gray-400 italic mt-1 cursor-pointer hover:text-gray-600 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-          onClick={() => startEdit('description', '')}
-        >
-          + Add description
-        </button>
-      )}
+      {renderTitle()}
+      {renderDescription()}
 
       <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
         <span className="break-all">{task.createdBy.username}</span>

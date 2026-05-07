@@ -6,6 +6,15 @@ const router = express.Router();
 
 router.use(requireAuth);
 
+// P2025 is Prisma's "record not found" code — thrown by update/delete when the where clause matches no rows.
+function handleNotFound(err, res) {
+  if (err.code === 'P2025') {
+    res.status(404).json({ error: 'not found' });
+    return true;
+  }
+  return false;
+}
+
 router.get('/', async (req, res) => {
   const tasks = await prisma.task.findMany({
     orderBy: { createdAt: 'asc' },
@@ -42,8 +51,7 @@ router.delete('/:id', async (req, res) => {
     req.app.get('io').emit('task:deleted', { id });
     res.status(204).end();
   } catch (err) {
-    // P2025: Prisma's "record not found" — thrown by update/delete when the where clause matches no rows
-    if (err.code === 'P2025') return res.status(404).json({ error: 'not found' });
+    if (handleNotFound(err, res)) return;
     throw err;
   }
 });
@@ -72,8 +80,7 @@ router.patch('/:id', async (req, res) => {
     req.app.get('io').emit('task:updated', task);
     res.json(task);
   } catch (err) {
-    // P2025: Prisma's "record not found" — thrown by update/delete when the where clause matches no rows
-    if (err.code === 'P2025') return res.status(404).json({ error: 'not found' });
+    if (handleNotFound(err, res)) return;
     throw err;
   }
 });

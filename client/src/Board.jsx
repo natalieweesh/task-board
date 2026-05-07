@@ -1,15 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from './api.js';
 import { socket } from './socket.js';
 import TaskCard from './TaskCard.jsx';
+import { STATUSES, STATUS_LABELS } from './statuses.js';
 
-const STATUSES = ['TODO', 'IN_PROGRESS', 'DONE'];
-
-const STATUS_LABELS = {
-  TODO: 'To do',
-  IN_PROGRESS: 'In progress',
-  DONE: 'Done',
-};
+// Add task to list, no-op if id already present. Used to dedupe between the POST response
+// and the 'task:created' socket echo — whichever arrives second is a no-op.
+function upsertTaskById(prev, task) {
+  return prev.some(t => t.id === task.id) ? prev : [...prev, task];
+}
 
 export default function Board() {
   const [tasks, setTasks] = useState([]);
@@ -19,15 +18,29 @@ export default function Board() {
   const [loading, setLoading] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [flashingIds, setFlashingIds] = useState(() => new Set());
-  // Tracks task ids WE just mutated (PATCH) so the resulting socket 'task:updated' echo
-  // doesn't trigger the flash animation for us. Cleared after a short TTL.
+  // Tracks task ids WE just mutated so the resulting socket 'task:updated' echo doesn't
+  // trigger the flash animation for us. Cleared after a short TTL.
   const localMutationsRef = useRef(new Set());
+  const timersRef = useRef(new Set());
+
+  useEffect(() => {
+    return () => {
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current.clear();
+    };
+  }, []);
+
+  function scheduleTimer(callback, delay) {
+    const id = setTimeout(() => {
+      timersRef.current.delete(id);
+      callback();
+    }, delay);
+    timersRef.current.add(id);
+  }
 
   function trackLocalMutation(taskId) {
     localMutationsRef.current.add(taskId);
-    setTimeout(() => {
-      localMutationsRef.current.delete(taskId);
-    }, 1500);
+    scheduleTimer(() => localMutationsRef.current.delete(taskId), 1500);
   }
 
   function flashTask(id) {
@@ -36,7 +49,7 @@ export default function Board() {
       next.add(id);
       return next;
     });
-    setTimeout(() => {
+    scheduleTimer(() => {
       setFlashingIds(prev => {
         const next = new Set(prev);
         next.delete(id);
@@ -55,9 +68,7 @@ export default function Board() {
     socket.connect();
 
     const onCreated = task => {
-      // Dedupe by id: this event also fires for tasks WE just created, which the POST handler
-      // already added locally. Whichever (socket vs. HTTP response) arrives second is a no-op.
-      setTasks(prev => (prev.some(t => t.id === task.id) ? prev : [...prev, task]));
+      setTasks(prev => upsertTaskById(prev, task));
     };
     const onUpdated = task => {
       setTasks(prev => prev.map(t => (t.id === task.id ? task : t)));
@@ -102,9 +113,7 @@ export default function Board() {
           description: description.trim() || undefined,
         }),
       });
-      // Dedupe: the socket 'task:created' event may have already added this task before the
-      // HTTP response resolved. See onCreated handler in the socket effect.
-      setTasks(prev => (prev.some(t => t.id === task.id) ? prev : [...prev, task]));
+      setTasks(prev => upsertTaskById(prev, task));
       setTitle('');
       setDescription('');
     } catch (err) {
@@ -121,6 +130,14 @@ export default function Board() {
     setError(null);
   }
 
+  const tasksByStatus = useMemo(() => {
+    const grouped = { TODO: [], IN_PROGRESS: [], DONE: [] };
+    for (const task of tasks) {
+      grouped[task.status]?.push(task);
+    }
+    return grouped;
+  }, [tasks]);
+
   return (
     <div>
       {formOpen ? (
@@ -130,7 +147,7 @@ export default function Board() {
         >
           <input
             type="text"
-            placeholder="task title"
+            placeholder="Task title"
             value={title}
             onChange={e => setTitle(e.target.value)}
             disabled={loading}
@@ -138,7 +155,7 @@ export default function Board() {
             className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <textarea
-            placeholder="description (optional)"
+            placeholder="Description (optional)"
             value={description}
             onChange={e => setDescription(e.target.value)}
             disabled={loading}
@@ -176,7 +193,7 @@ export default function Board() {
 
       <div className="flex flex-col md:flex-row gap-4">
         {STATUSES.map(status => {
-          const columnTasks = tasks.filter(t => t.status === status);
+          const columnTasks = tasksByStatus[status];
           return (
             <div
               key={status}
