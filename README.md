@@ -17,6 +17,11 @@
 - Socket.io for realtime updates, compatible with Node.js
 - Prisma ORM for PostgreSQL for easy migrations, easy to write CRUD operations, typescript compatibility
 - Tailwind for ease of styling
+- Schema:
+  - went with simple schema, 3 models: User, Session, and Task
+  - Sessions can be revoked without touching the User table
+  - Tasks have an author but not used for permissions yet
+  - didn't add any indexes for demo, but we could index to Task on createdById for looking up all tasks created by a certain author, and we could add an index to Task on status if we wanted to search or paginate by column
 
 ## System architecture overview
 <img width="955" height="425" alt="Screenshot 2026-05-07 at 1 04 26 AM" src="https://github.com/user-attachments/assets/e26bfb08-ec05-45e0-95cd-a602e85d59ba" />
